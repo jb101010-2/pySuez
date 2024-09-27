@@ -26,6 +26,7 @@ class SuezClient():
         self._headers = {}
         self.data = {}
         self.attributes = {}
+        self._hostname = ''
         self.success = False
         self._session = session
         self._timeout = timeout
@@ -55,7 +56,7 @@ class SuezClient():
 
         phrase = re.compile('csrfToken\\\\u0022\\\\u003A\\\\u0022(.*)\\\\u0022,\\\\u0022targetUrl')
         result = phrase.search(response.content.decode('utf-8'))
-        self._token = result.group(1)
+        self._token = result.group(1).encode().decode('unicode_escape')
         self._headers = headers
 
     def _get_cookie(self):
@@ -85,7 +86,7 @@ class SuezClient():
             raise PySuezError("Can not submit login form.")
 
         # Get the URL after possible redirect
-        m = re.match('https?://([^/]+)/',response.url)
+        m = re.match('https?://(.*?)/',response.url)
         self._hostname = m.group(1)
 
         if not 'eZSESSID' in self._session.cookies.get_dict():
@@ -95,7 +96,6 @@ class SuezClient():
         session_id=self._session.cookies.get(name="eZSESSID",domain=self._hostname)
         self._headers['Cookie'] = 'eZSESSID='+session_id
         return True
-        
 
     def _fetch_data(self):
         """Fetch latest data from Suez."""
@@ -106,13 +106,15 @@ class SuezClient():
         yesterday_year = yesterday.strftime('%Y')
         yesterday_month = yesterday.strftime('%m')
         yesterday_day = yesterday.strftime('%d')
-        url = BASE_URI+API_ENDPOINT_DATA
+        
+        self._get_cookie()
+        
+        url = "https://" + self._hostname + API_ENDPOINT_DATA
         url += '{}/{}/{}'.format(
             yesterday_year,
             yesterday_month, self._counter_id
             )
         
-        self._get_cookie()
 
         data = requests.get(url, headers=self._headers)
 
@@ -128,7 +130,7 @@ class SuezClient():
 
         try:
             if yesterday_month != today_month:
-                url = BASE_URI+API_ENDPOINT_DATA
+                url = "https://" + self._hostname + API_ENDPOINT_DATA
                 url += '{}/{}/{}'.format(
                     today_year,
                     today_month, self._counter_id
@@ -152,7 +154,7 @@ class SuezClient():
                 last_month = int(today_month) - 1
                 last_month_year = today_year
 
-            url = BASE_URI+API_ENDPOINT_DATA
+            url = "https://" + self._hostname + API_ENDPOINT_DATA
             url += '{}/{}/{}'.format(
                 last_month_year, last_month,
                 self._counter_id
@@ -170,7 +172,7 @@ class SuezClient():
             pass
 
         try:
-            url = BASE_URI+API_ENDPOINT_HISTORY
+            url = "https://" + self._hostname + API_ENDPOINT_HISTORY
             url += '{}'.format(self._counter_id)
 
             data = requests.get(url, headers=self._headers)
@@ -211,11 +213,12 @@ class SuezClient():
         url = BASE_URI+API_ENDPOINT_LOGIN
 
         try:
-            self._session.post(url,
+            response = self._session.post(url,
                                headers=self._headers, 
                                data=data,
-                               allow_redirects=False,
+                               allow_redirects=True,
                                timeout=self._timeout)
+            self._hostname = re.match('https?://([^/]+)/',response.url).group(1)
         except OSError:
             raise PySuezError("Can not submit login form.")
 
