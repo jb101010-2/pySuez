@@ -5,7 +5,6 @@ import datetime
 
 
 BASE_URI = 'https://www.toutsurmoneau.fr'
-# BASE_URI = ''
 API_ENDPOINT_LOGIN = '/mon-compte-en-ligne/je-me-connecte'
 API_ENDPOINT_DATA = '/mon-compte-en-ligne/statJData/'
 API_ENDPOINT_HISTORY = '/mon-compte-en-ligne/statMData/'
@@ -126,7 +125,6 @@ class SuezClient():
 
         except ValueError:
             raise PySuezError("Issue with yesterday data")
-            pass
 
         try:
             if yesterday_month != today_month:
@@ -144,7 +142,6 @@ class SuezClient():
 
         except ValueError:
             raise PySuezError("Issue with this month data")
-            pass
 
         try:
             if int(today_month) == 1:
@@ -169,7 +166,6 @@ class SuezClient():
 
         except ValueError:
             raise PySuezError("Issue with previous month data")
-            pass
 
         try:
             url = "https://" + self._hostname + API_ENDPOINT_HISTORY
@@ -191,10 +187,8 @@ class SuezClient():
                 self.attributes['history'][item[3]] = int(
                     float(item[1])*1000)
 
-
         except ValueError:
             raise PySuezError("Issue with history data")
-            pass
 
     def check_credentials(self):
         if self._session is None:
@@ -227,22 +221,8 @@ class SuezClient():
         else:
             return True
 
-        #response = requests.post(url,
-        #                       headers=self._headers, 
-        #                       data=data,
-        #                       allow_redirects=False,
-        #                       timeout=self._timeout
-        #    )
-        #if (
-        #        ('Connexion en cours') in response.content.decode() or 
-        #        ('se déconnecter') in response.content.decode()
-        #        ):
-        #    return True
-        #else:
-        #    return False
-
     def update(self):
-        """Return the latest collected data from Linky."""
+        """Return the latest collected data from Suez."""
         self._fetch_data()
         if not self.success:
             return
