@@ -28,7 +28,7 @@ setup(
           ]
       },
       license='Apache-2.0',
-      install_requires=['regex', 'requests'],
+      install_requires=['aiohttp', 'requests'],
       classifiers=[
           'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
