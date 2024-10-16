@@ -4,17 +4,14 @@ import logging
 
 import requests
 
+from pysuez.exception import PySuezError
+
 BASE_URI = 'https://www.toutsurmoneau.fr'
 API_ENDPOINT_LOGIN = '/mon-compte-en-ligne/je-me-connecte'
 API_ENDPOINT_DAY_DATA = '/mon-compte-en-ligne/statJData/'
 API_ENDPOINT_MONTH_DATA = '/mon-compte-en-ligne/statMData/'
 
 LOGGER = logging.getLogger(__name__)
-
-
-class PySuezError(Exception):
-  pass
-
 
 class SuezClient:
   """Global variables."""

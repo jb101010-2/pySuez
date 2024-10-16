@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from datetime import timedelta
-from typing import List
 
 import logging
 
-from pysuez.client import PySuezError, SuezClient
+from pysuez.client import SuezClient
 from pysuez.async_client import SuezAsyncClient
+from pysuez.exception import PySuezConnexionError, PySuezDataError, PySuezError
 
 API_ENDPOINT_ALERT = '/public-api/contract/tile/alerts'
 INFORMATION_ENDPOINT = '/information/donnee/'
@@ -54,15 +54,11 @@ class ConsumptionIndexResult:
 
 class DayDataResult:
   def __init__(self,
-               year,
-               month,
-               day,
+               date: date,
                day_consumption,
                total_consumption
                ):
-    self.year = year
-    self.month = month
-    self.day = day
+    self.date = date
     self.day_consumption = day_consumption
     self.total_consumption = total_consumption
 
@@ -169,7 +165,7 @@ class SuezData:
     LOGGER.debug("getting consumption index")
     async with await self._async_client.get(API_CONSUMPTION_INDEX) as data:
       if data.status != 200:
-        raise PySuezError("Error while getting consumption index")
+        raise PySuezConnexionError("Error while getting consumption index")
       json = await data.json()
       response_data = ConsumptionIndexResult(**json)
       LOGGER.debug('Retrieved consumption index')
@@ -180,7 +176,7 @@ class SuezData:
     LOGGER.debug("getting alert")
     async with await self._async_client.get(API_ENDPOINT_ALERT) as data:
       if data.status != 200:
-        raise PySuezError("Error while requesting alerts")
+        raise PySuezConnexionError("Error while requesting alerts")
 
       json = await data.json()
       alert_response = AlertQueryResult(**json)
@@ -255,7 +251,7 @@ class SuezData:
       return None
     return result_by_day
 
-  async def fetch_month_data(self, year, month) -> List[DayDataResult]:
+  async def fetch_month_data(self, year, month) -> list[DayDataResult]:
     LOGGER.debug('getting month: ' + str(year) + ' / ' + str(month))
     now = datetime.now()
 
@@ -265,12 +261,12 @@ class SuezData:
           '_=': now.timestamp()
         }) as data:
       if data.status != 200:
-        raise PySuezError(
+        raise PySuezConnexionError(
           "Error while requesting data: status={}".format(data.status))
 
       result_by_day = await data.json()
       if result_by_day[0] == 'ERR':
-        raise PySuezError(
+        raise PySuezDataError(
           "Error while requesting data: {}".format(result_by_day[1]))
 
       result = []
@@ -280,20 +276,18 @@ class SuezData:
         if total > 0:
           result.append(
             DayDataResult(
-              date.year,
-              date.month,
-              date.day,
+              date.date(),
               float(day[1]) * 1000,
               total,
             )
           )
       return result
 
-  def fetch_all_available(self) -> List[DayDataResult]:
-    LOGGER.debug("getting all")
-    current = datetime.now()
+  def fetch_all_available(self, since: date | None = None) -> list[DayDataResult]:
+    LOGGER.debug("getting all available data")
+    current = datetime.now().date()
     result = []
-    while True:
+    while since is None or current >= since:
       try:
         current = current.replace(day=1, hour=0, minute=0, second=0,
                                   microsecond=0)
@@ -303,7 +297,7 @@ class SuezData:
         next_result.extend(result)
         result = next_result
         current = current - timedelta(days=1)
-      except PySuezError:
+      except PySuezDataError:
         return result
 
   def get_attribution(self):
