@@ -1,6 +1,5 @@
 import argparse
 import sys
-import json
 
 from pysuez import SuezClient
 
