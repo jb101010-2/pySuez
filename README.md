@@ -11,7 +11,7 @@ Installation
 
 The easiest way to install the library is using [`pip`](https://pip.pypa.io/en/stable/):
 
-    pip install pySuez
+    pip install pySuezV2
 
 You can also download the source code and install it manually::
 
@@ -22,7 +22,7 @@ Usage
 -----
 Print your current and history data
 
-    pySuez -u <USERNAME> -p <PASSWORD> -c <COUNTER_ID> -P <PROVIDER_NAME>
+    pySuez -u <USERNAME> -p <PASSWORD> [-c <COUNTER_ID>]
 
 You need to get your `COUNTER_ID` either from your bill or from your history consumption on your Suez's website. You can find it in the source code of this webpage, right after `.../mon-compte-en-ligne/statMData/xxxxxxx?...`.
 If no provider name is given, `Tout sur mon eau` will be used. The only one supported here is `Eau Olivet`.
@@ -31,5 +31,5 @@ Dev env
 -------
 create virtual env and install requirements
 
-    virtualenv -p /usr/bin/python3.4 env
+    virtualenv -p /usr/bin/python env
     pip install -r requirements.txt
