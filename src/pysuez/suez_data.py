@@ -5,7 +5,7 @@ import logging
 
 from pysuez.client import SuezClient
 from pysuez.async_client import SuezAsyncClient
-from pysuez.exception import PySuezConnexionError, PySuezDataError, PySuezError
+from pysuez.exception import PySuezConnexionError, PySuezDataError
 
 API_ENDPOINT_ALERT = '/public-api/contract/tile/alerts'
 INFORMATION_ENDPOINT = '/information/donnee/'
@@ -283,15 +283,15 @@ class SuezData:
           )
       return result
 
-  def fetch_all_available(self, since: date | None = None) -> list[DayDataResult]:
+  async def fetch_all_available(self, since: date | None = None) -> list[DayDataResult]:
     LOGGER.debug("getting all available data")
     current = datetime.now().date()
     result = []
     while since is None or current >= since:
       try:
-        current = current.replace(day=1, hour=0, minute=0, second=0,
-                                  microsecond=0)
-        month = self.fetch_month_data(current.year, current.month)
+        LOGGER.info("fetch data of " + str(current))
+        current  = current.replace(day=1)
+        month = await self.fetch_month_data(current.year, current.month)
         next_result = []
         next_result.extend(month)
         next_result.extend(result)
