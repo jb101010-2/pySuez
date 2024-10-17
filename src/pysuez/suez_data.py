@@ -169,7 +169,7 @@ class SuezData:
     LOGGER.debug("getting consumption index")
     async with await self._async_client.get(API_CONSUMPTION_INDEX) as data:
       if data.status != 200:
-        raise PySuezError("Error while getting consumption index")
+        raise PySuezError("Error while getting consumption index: " + str(data.status))
       json = await data.json()
       response_data = ConsumptionIndexResult(**json)
       LOGGER.debug('Retrieved consumption index')
@@ -180,7 +180,7 @@ class SuezData:
     LOGGER.debug("getting alert")
     async with await self._async_client.get(API_ENDPOINT_ALERT) as data:
       if data.status != 200:
-        raise PySuezError("Error while requesting alerts")
+        raise PySuezError("Error while requesting alerts: " + str(data.status))
 
       json = await data.json()
       alert_response = AlertQueryResult(**json)

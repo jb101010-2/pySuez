@@ -134,7 +134,8 @@ class SuezAsyncClient:
     LOGGER.debug(f"Getting something {url} connected = {self.connected}")
     try:
       return self._get_session().get(url, headers=self._headers, params=params)
-    except OSError:
+    except OSError as ex:
+      self.connected = False
       raise PySuezError("Error during get query to " + url)
 
   async def check_credentials(self):
@@ -144,12 +145,22 @@ class SuezAsyncClient:
     except Exception:
       return False
 
-  async def close_session(self):
+  async def close_session(self) -> None:
     """Close current session."""
     LOGGER.debug('closing session')
     if self._session is not None:
+      await self._logout()
       await self._get_session().close()
     self._session = None
+  
+  async def _logout(self) -> None:
+    if self._session is not None and self.connected:
+      async with await self.get('/mon-compte-en-ligne/deconnexion', need_connection=False) as disconnexion:
+        if disconnexion.status >= 400:
+          raise PySuezError('Disconnexion failed')
+        LOGGER.debug('Successfully logged out from suez')
+      self.connected = False
+      
 
   def get_attribution(self):
     return "Data provided by toutsurmoneau.fr"
