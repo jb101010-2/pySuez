@@ -284,8 +284,8 @@ class SuezData:
       return result
 
   async def fetch_all_available(self, since: date | None = None) -> list[DayDataResult]:
-    LOGGER.debug("getting all available data")
     current = datetime.now().date()
+    LOGGER.warning("getting all available data since %s to %s", str(since), str(current))
     result = []
     while since is None or current >= since:
       try:
@@ -299,6 +299,7 @@ class SuezData:
         current = current - timedelta(days=1)
       except PySuezDataError:
         return result
+    return result
 
   def get_attribution(self):
     return self._async_client.get_attribution()
