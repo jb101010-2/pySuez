@@ -25,7 +25,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "requests","aiohttp","asyncio"
+    "requests","aiohttp",
 ]
 keywords = ["suez","toutsurmoneau","water consumption"]
 
