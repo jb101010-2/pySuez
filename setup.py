@@ -21,16 +21,13 @@ setup(
       author='jb101010-2',
       author_email='dev.julien.basson@gmail.com',
       url='https://github.com/jb101010-2/pySuez',
-      download_url='https://github.com/jb101010-2/pySuez/releases/tag/0.2.1',
-      package_data={'': ['LICENSE']},
-      include_package_data=True,
       packages=find_packages(),
       entry_points={
           'console_scripts': [
               'pysuez = pysuez.__main__:main'
           ]
       },
-      license='Apache 2.0',
+      license='Apache-2.0',
       install_requires=['regex', 'requests'],
       classifiers=[
           'Programming Language :: Python :: 3.4',
