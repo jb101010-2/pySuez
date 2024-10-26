@@ -15,7 +15,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
       name='pysuezV2',
-      version='0.2.1',
+      version='0.2.2',
       description='Get your water consumption data from your Suez account (www.toutsurmoneau.fr or www.eau-olivet.fr)',
       long_description=long_description,
       author='jb101010-2',
@@ -31,7 +31,7 @@ setup(
           ]
       },
       license='Apache 2.0',
-      install_requires=['regex', 'requests', 'datetime'],
+      install_requires=['regex', 'requests'],
       classifiers=[
           'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
