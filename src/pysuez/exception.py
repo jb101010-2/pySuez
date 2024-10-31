@@ -1,8 +1,10 @@
 class PySuezError(Exception):
-  pass
+    pass
 
-class PySuezConnexionError(Exception):
-  pass
+
+class PySuezConnexionError(PySuezError):
+    pass
+
 
 class PySuezDataError(PySuezError):
-  pass
+    pass
