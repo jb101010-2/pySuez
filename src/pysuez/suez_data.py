@@ -336,8 +336,6 @@ class SuezData:
         now = datetime.now()
         today_year = now.strftime("%Y")
         today_month = now.strftime("%m")
-        yesterday = datetime.now() - timedelta(1)
-        yesterday_month = yesterday.strftime("%m")
 
         yesterday_data = await self.fetch_yesterday_data()
         if yesterday_data is not None:
@@ -345,13 +343,10 @@ class SuezData:
         else:
             state = None
 
-        if yesterday_month != today_month:
-            month_data = await self.fetch_month_data(today_year, today_month)
-            current_month = {}
-            for item in month_data:
-                current_month[item.date] = item.day_consumption
-        else:
-            current_month = None
+        month_data = await self.fetch_month_data(today_year, today_month)
+        current_month = {}
+        for item in month_data:
+            current_month[item.date] = item.day_consumption
 
         if int(today_month) == 1:
             last_month = 12
