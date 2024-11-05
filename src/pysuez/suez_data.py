@@ -378,7 +378,9 @@ class SuezData:
             attribution=ATTRIBUTION,
         )
 
-    async def _fetch_aggregated_statistics(self):
+    async def _fetch_aggregated_statistics(
+        self,
+    ) -> tuple[int, int, int, dict[date, float]]:
         try:
             statistics_url = API_ENDPOINT_MONTH_DATA
             async with await self._async_client.get(

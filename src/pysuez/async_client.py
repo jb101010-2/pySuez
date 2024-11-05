@@ -20,7 +20,7 @@ class SuezAsyncClient:
         password,
         counter_id,
         timeout=None,
-    ):
+    ) -> None:
         """Initialize the client object."""
         self._username = username
         self._password = password
@@ -32,7 +32,7 @@ class SuezAsyncClient:
         self._timeout = timeout
         self.connected = False
 
-    async def _get_token(self):
+    async def _get_token(self) -> None:
         """Get the token"""
         headers = {**TOKEN_HEADERS}
         url = BASE_URI + API_ENDPOINT_LOGIN
@@ -79,7 +79,7 @@ class SuezAsyncClient:
         except OSError:
             raise PySuezError("Can not submit login form.")
 
-    async def counter_finder(self):
+    async def counter_finder(self) -> int:
         page_url = API_HISTORY_CONSUMPTION
         async with await self.get(page_url) as page:
             match = re.search(
@@ -107,7 +107,7 @@ class SuezAsyncClient:
             self.connected = False
             raise PySuezError("Error during get query to " + url) from ex
 
-    async def check_credentials(self):
+    async def check_credentials(self) -> bool:
         try:
             await self._get_cookie()
             return True
