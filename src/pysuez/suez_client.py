@@ -99,7 +99,7 @@ class SuezClient:
     async def fetch_day_data(self, date: datetime | date) -> DayDataResult | None:
         """Retrieve requested day consumption if available or none if not.
 
-        /!\ This method will retrieve all month data"""
+        ! This method will retrieve all month data"""
         year = date.year
         month = date.month
 
@@ -111,7 +111,7 @@ class SuezClient:
     async def fetch_yesterday_data(self) -> DayDataResult | None:
         """Retrieve yesterday consumption if available or none if not.
 
-        /!\ This method will retrieve all month data"""
+        ! This method will retrieve all month data"""
         now = datetime.now()
         yesterday = now - timedelta(days=1)
         return await self.fetch_day_data(yesterday)
