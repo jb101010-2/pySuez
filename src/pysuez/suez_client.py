@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from datetime import date, datetime, timedelta
@@ -161,28 +162,31 @@ class SuezClient:
             return result
 
     async def fetch_all_daily_data(
-        self, since: date | None = None
+        self, since: date | None = None, timeout: int | None = 60
     ) -> list[DayDataResult]:
-        current = datetime.now().date()
-        _LOGGER.debug(
-            "Getting all available data from suez since %s to %s",
-            str(since),
-            str(current),
-        )
-        result = []
-        while since is None or current >= since:
-            try:
-                _LOGGER.debug("Fetch data of " + str(current))
-                current = current.replace(day=1)
-                month = await self.fetch_month_data(current.year, current.month)
-                next_result = []
-                next_result.extend(month)
-                next_result.extend(result)
-                result = next_result
-                current = current - timedelta(days=1)
-            except PySuezDataError:
-                return result
-        return result
+        async with asyncio.timeout(timeout):
+            current = datetime.now().date()
+            _LOGGER.debug(
+                "Getting all available data from suez since %s to %s",
+                str(since),
+                str(current),
+            )
+            result = []
+            while since is None or current >= since:
+                try:
+                    _LOGGER.debug("Fetch data of " + str(current))
+                    current = current.replace(day=1)
+                    month = await self.fetch_month_data(current.year, current.month)
+                    if len(month) == 0:
+                        return result
+                    next_result = []
+                    next_result.extend(month)
+                    next_result.extend(result)
+                    result = next_result
+                    current = current - timedelta(days=1)
+                except PySuezDataError:
+                    return result
+            return result
 
     async def fetch_aggregated_data(self) -> AggregatedData:
         """Fetch latest data from Suez."""
