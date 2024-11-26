@@ -33,3 +33,6 @@ create virtual env and install requirements
 
     virtualenv -p /usr/bin/python env
     pip install -r requirements.txt
+
+## Credits
+Originally forked from [ooii/pySuez](https://github.com/ooii/pySuez)
