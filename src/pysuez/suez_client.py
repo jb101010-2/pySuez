@@ -55,11 +55,14 @@ class SuezClient:
         password: str,
         counter_id: int | None,
         timeout: ClientTimeout | None = None,
+        url: str = BASE_URI,
     ) -> None:
         """Initialize the client object."""
+
         self._username = username
         self._password = password
         self._counter_id = counter_id
+        self._url = url
         if timeout is None:
             self._timeout = ClientTimeout(total=15)
         else:
@@ -325,7 +328,7 @@ class SuezClient:
     async def _get_token(self) -> None:
         """Get the token"""
         headers = {**TOKEN_HEADERS}
-        url = BASE_URI + API_ENDPOINT_LOGIN
+        url = self._url + API_ENDPOINT_LOGIN
 
         session = self._get_session()
         async with session.get(url, headers=headers, timeout=self._timeout) as response:
@@ -352,8 +355,13 @@ class SuezClient:
                 allow_redirects=True,
                 timeout=self._timeout,
             ) as response:
-                # Get the URL after possible redirect
+                if response.status >= 400:
+                    raise PySuezConnexionError(
+                        f"Login error: error during login. status={response.status}"
+                    )
+                # Get the URL after possible redirection
                 self._hostname = response.url.origin().__str__()
+                _LOGGER.debug(f"Redirected from {url} to {self._hostname}")
                 cookies = session.cookie_jar.filter_cookies(response.url.origin())
                 session_cookie = cookies.get("eZSESSID")
                 if session_cookie is None:
@@ -394,15 +402,11 @@ class SuezClient:
     async def _get_credential_query(self):
         await self._get_token()
         data = {
-            "_username": self._username,
-            "_password": self._password,
             "_csrf_token": self._token,
-            "signin[username]": self._username,
-            "signin[password]": None,
             "tsme_user_login[_username]": self._username,
             "tsme_user_login[_password]": self._password,
         }
-        url = self._get_url(BASE_URI, API_ENDPOINT_LOGIN, with_counter_id=False)
+        url = self._get_url(self._url, API_ENDPOINT_LOGIN, with_counter_id=False)
         return data, url
 
     async def _logout(self) -> None:
