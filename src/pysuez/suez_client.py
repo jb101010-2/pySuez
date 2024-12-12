@@ -69,7 +69,7 @@ class SuezClient:
         self._counter_id = counter_id
         self._hostname = url
         if timeout is None:
-            self._timeout = ClientTimeout(total=15)
+            self._timeout = ClientTimeout(total=60)
         else:
             self._timeout = timeout
 
@@ -383,7 +383,7 @@ class SuezClient:
                 else:
                     raise err
             except Exception as ex:
-                self.close_session()
+                await self.close_session()
                 if remaing_attempt == 0:
                     raise PySuezError(f"Error during get query to {url}") from ex
                 else:
