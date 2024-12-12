@@ -3,6 +3,7 @@ import asyncio
 import sys
 from datetime import datetime, timedelta
 
+from pysuez.const import BASE_URI
 from pysuez.suez_client import SuezClient
 
 
@@ -12,6 +13,9 @@ async def main():
     parser.add_argument("-u", "--username", required=True, help="Suez username")
     parser.add_argument("-p", "--password", required=True, help="Password")
     parser.add_argument("-c", "--counter_id", required=False, help="Counter Id")
+    parser.add_argument(
+        "-url", "--url", required=False, help=f"Endpoint url: default to {BASE_URI}"
+    )
     parser.add_argument(
         "-m",
         "--mode",
