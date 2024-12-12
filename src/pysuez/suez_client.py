@@ -83,26 +83,27 @@ class SuezClient:
             await self.close_session()
 
     async def find_counter(self) -> int:
+        _LOGGER.debug("Try finding counter")
         page_url = API_HISTORY_CONSUMPTION
-        async with await self._get(page_url) as page:
-            match = re.search(
-                r"'\/mon-compte-en-ligne\/statMData'\s\+\s'/(\d+)'",
-                await page.text(),
-                re.MULTILINE,
-            )
-            if match is None:
-                raise PySuezError("Counter id not found")
-            self._counter_id = int(match.group(1))
-            _LOGGER.debug("Found counter {}".format(self._counter_id))
-            return self._counter_id
+        text = await self._get(page_url, read="text")
+        match = re.search(
+            r"'\/mon-compte-en-ligne\/statMData'\s\+\s'/(\d+)'",
+            text,
+            re.MULTILINE,
+        )
+        if match is None:
+            raise PySuezError("Counter id not found")
+        self._counter_id = int(match.group(1))
+        _LOGGER.debug("Found counter {}".format(self._counter_id))
+        return self._counter_id
 
     async def close_session(self) -> None:
         """Close current session."""
         if self._session is not None:
-            _LOGGER.debug("closing suez session")
+            _LOGGER.debug("Closing suez session")
             await self._logout()
             await self._session.close()
-            _LOGGER.debug("successfully closed suez session")
+            _LOGGER.debug("Successfully closed suez session")
         self._session = None
 
     async def fetch_day_data(self, date: datetime | date) -> DayDataResult | None:
