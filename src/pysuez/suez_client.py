@@ -2,10 +2,11 @@ import asyncio
 import logging
 import re
 from datetime import date, datetime, timedelta
+from typing import Any
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
-from aiohttp.client import ClientResponse, _BaseRequestContextManager
+from aiohttp.client import ClientResponse
 
 from pysuez.const import (
     API_CONSUMPTION_INDEX,
@@ -20,9 +21,15 @@ from pysuez.const import (
     INFORMATION_ENDPOINT_LIMESTONE,
     INFORMATION_ENDPOINT_PRICE,
     INFORMATION_ENDPOINT_QUALITY,
+    MAX_REQUEST_ATTEMPT,
     TOKEN_HEADERS,
 )
-from pysuez.exception import PySuezConnexionError, PySuezDataError, PySuezError
+from pysuez.exception import (
+    PySuezConnexionError,
+    PySuezConnexionNeededException,
+    PySuezDataError,
+    PySuezError,
+)
 from pysuez.models import (
     AggregatedData,
     AlertQueryResult,
@@ -45,8 +52,6 @@ class SuezClient:
 
     _token: str | None = None
     _headers: dict | None = None
-    _hostname: str | None = None
-    _connected = False
     _session: ClientSession | None = None
 
     def __init__(
@@ -55,11 +60,14 @@ class SuezClient:
         password: str,
         counter_id: int | None,
         timeout: ClientTimeout | None = None,
+        url: str = BASE_URI,
     ) -> None:
         """Initialize the client object."""
+
         self._username = username
         self._password = password
         self._counter_id = counter_id
+        self._hostname = url
         if timeout is None:
             self._timeout = ClientTimeout(total=15)
         else:
@@ -120,46 +128,38 @@ class SuezClient:
     async def fetch_month_data(self, year, month) -> list[DayDataResult]:
         now = datetime.now()
 
-        async with await self._get(
+        result_by_day = await self._get(
             API_ENDPOINT_DAILY_DATA,
             year,
             month,
             with_counter_id=True,
             params={"_=": now.timestamp()},
-        ) as data:
-            if data.status != 200:
-                raise PySuezDataError(
-                    "Error while requesting data: status={}".format(data.status)
+        )
+        if result_by_day[0] == "ERR":
+            _LOGGER.debug(
+                "Error while requesting data for {}/{}: {}".format(
+                    year, month, result_by_day[1]
                 )
+            )
+            return []
 
-            result_by_day = await data.json()
-            if result_by_day[0] == "ERR":
-                _LOGGER.debug(
-                    "Error while requesting data for {}/{}: {}".format(
-                        year, month, result_by_day[1]
-                    )
-                )
-                return []
-
-            result = []
-            for day in result_by_day:
-                date = datetime.strptime(day[0], "%d/%m/%Y")
-                try:
-                    total = float(day[2])
-                    if total > 0:
-                        result.append(
-                            DayDataResult(
-                                date.date(),
-                                cubic_meters_to_liters(float(day[1])),
-                                total,
-                            )
+        result = []
+        for day in result_by_day:
+            date = datetime.strptime(day[0], "%d/%m/%Y")
+            try:
+                total = float(day[2])
+                if total > 0:
+                    result.append(
+                        DayDataResult(
+                            date.date(),
+                            cubic_meters_to_liters(float(day[1])),
+                            total,
                         )
-                except ValueError:
-                    _LOGGER.debug(
-                        f"Failed to parse consumption value:{day[1]} / {day[0]} "
                     )
-                    return result
-            return result
+            except ValueError:
+                _LOGGER.debug(f"Failed to parse consumption value:{day[1]} / {day[0]} ")
+                return result
+        return result
 
     async def fetch_all_daily_data(
         self, since: date | None = None, timeout: int | None = 60
@@ -237,87 +237,67 @@ class SuezClient:
 
     async def get_consumption_index(self) -> ConsumptionIndexResult:
         """Fetch consumption index."""
-        async with await self._get(API_CONSUMPTION_INDEX) as data:
-            if data.status != 200:
-                raise PySuezDataError("Error while getting consumption index")
-            json = await data.json()
-            return ConsumptionIndexResult(**json)
+        json = await self._get(API_CONSUMPTION_INDEX)
+        return ConsumptionIndexResult(**json)
 
     async def get_alerts(self) -> AlertResult:
         """Fetch alert data from Suez."""
-        async with await self._get(API_ENDPOINT_ALERT) as data:
-            if data.status != 200:
-                raise PySuezDataError("Error while requesting alerts")
-
-            json = await data.json()
-            alert_response = AlertQueryResult(**json)
-            return AlertResult(
-                alert_response.content.leak.status != "NO_ALERT",
-                alert_response.content.overconsumption.status != "NO_ALERT",
-            )
+        json = await self._get(API_ENDPOINT_ALERT)
+        alert_response = AlertQueryResult(**json)
+        return AlertResult(
+            alert_response.content.leak.status != "NO_ALERT",
+            alert_response.content.overconsumption.status != "NO_ALERT",
+        )
 
     async def get_price(self) -> PriceResult:
         """Fetch water price in e/m3"""
         contract = await self.contract_data()
-        async with await self._get(
-            INFORMATION_ENDPOINT_PRICE, contract.inseeCode, need_connection=False
-        ) as data:
-            json = await data.json()
-            return PriceResult(**json)
+        json = await self._get(INFORMATION_ENDPOINT_PRICE, contract.inseeCode)
+        return PriceResult(**json)
 
     async def get_water_quality(self) -> QualityResult:
         """Fetch water quality"""
         contract = await self.contract_data()
-        async with await self._get(
-            INFORMATION_ENDPOINT_QUALITY, contract.inseeCode, need_connection=False
-        ) as data:
-            json = await data.json()
-            return QualityResult(**json)
+        json = await self._get(INFORMATION_ENDPOINT_QUALITY, contract.inseeCode)
+        return QualityResult(**json)
 
     async def get_interventions(self) -> InterventionResult:
         """Fetch water interventions"""
         contract = await self.contract_data()
-        async with await self._get(
+        json = await self._get(
             INFORMATION_ENDPOINT_INTERVENTION,
             contract.inseeCode,
-            need_connection=False,
-        ) as data:
-            json = await data.json()
-            return InterventionResult(**json)
+        )
+        return InterventionResult(**json)
 
     async def get_limestone(self) -> LimestoneResult:
         """Fetch water limestone values"""
         contract = await self.contract_data()
-        async with await self._get(
-            INFORMATION_ENDPOINT_LIMESTONE, contract.inseeCode, need_connection=False
-        ) as data:
-            json = await data.json()
-            return LimestoneResult(**json)
+        json = await self._get(INFORMATION_ENDPOINT_LIMESTONE, contract.inseeCode)
+        return LimestoneResult(**json)
 
     async def contract_data(self) -> ContractResult:
         url = "/public-api/user/donnees-contrats"
-        async with await self._get(url) as data:
-            json = await data.json()
-            return ContractResult(json[0])
+        json = await self._get(url)
+        return ContractResult(json[0])
 
     async def _fetch_aggregated_statistics(
         self,
     ) -> tuple[int, int, int, dict[date, float]]:
         try:
             statistics_url = API_ENDPOINT_MONTH_DATA
-            async with await self._get(statistics_url, with_counter_id=True) as data:
-                fetched_data: list = await data.json()
-                highest_monthly_consumption = int(
-                    cubic_meters_to_liters(float(fetched_data[-1]))
-                )
-                fetched_data.pop()
-                last_year = int(cubic_meters_to_liters(float(fetched_data[-1])))
-                fetched_data.pop()
-                current_year = int(cubic_meters_to_liters(float(fetched_data[-1])))
-                fetched_data.pop()
-                history = {}
-                for item in fetched_data:
-                    history[item[3]] = int(cubic_meters_to_liters(float(item[1])))
+            fetched_data: list = await self._get(statistics_url, with_counter_id=True)
+            highest_monthly_consumption = int(
+                cubic_meters_to_liters(float(fetched_data[-1]))
+            )
+            fetched_data.pop()
+            last_year = int(cubic_meters_to_liters(float(fetched_data[-1])))
+            fetched_data.pop()
+            current_year = int(cubic_meters_to_liters(float(fetched_data[-1])))
+            fetched_data.pop()
+            history = {}
+            for item in fetched_data:
+                history[item[3]] = int(cubic_meters_to_liters(float(item[1])))
         except ValueError:
             raise PySuezError("Issue with history data")
         return highest_monthly_consumption, last_year, current_year, history
@@ -325,7 +305,7 @@ class SuezClient:
     async def _get_token(self) -> None:
         """Get the token"""
         headers = {**TOKEN_HEADERS}
-        url = BASE_URI + API_ENDPOINT_LOGIN
+        url = self._hostname + API_ENDPOINT_LOGIN
 
         session = self._get_session()
         async with session.get(url, headers=headers, timeout=self._timeout) as response:
@@ -352,38 +332,61 @@ class SuezClient:
                 allow_redirects=True,
                 timeout=self._timeout,
             ) as response:
-                # Get the URL after possible redirect
-                self._hostname = response.url.origin().__str__()
+                if response.status >= 400:
+                    raise PySuezConnexionError(f"Login error: status={response.status}")
                 cookies = session.cookie_jar.filter_cookies(response.url.origin())
                 session_cookie = cookies.get("eZSESSID")
                 if session_cookie is None:
                     raise PySuezConnexionError(
                         "Login error: Please check your username/password."
                     )
+                # Get the URL after possible redirection
+                self._hostname = response.url.origin().__str__()
+                _LOGGER.debug(
+                    f"Login successful, redirected from {url} to {self._hostname}"
+                )
 
                 self._headers["Cookie"] = ""
                 session_id = session_cookie.value
                 self._headers["Cookie"] = "eZSESSID=" + session_id
                 return True
-        except OSError:
+        except Exception:
             raise PySuezConnexionError("Can not submit login form.")
 
     async def _get(
-        self, *url: str, with_counter_id=False, need_connection=True, params=None
-    ) -> _BaseRequestContextManager[ClientResponse]:
-        if need_connection and not self._connected:
-            self._connected = await self._connect()
-
+        self, *url: str, with_counter_id=False, params=None, read: str | None = "json"
+    ) -> Any:
         url = self._get_url(self._hostname, *url, with_counter_id=with_counter_id)
-        _LOGGER.debug(f"Request to {url} connected = {self._connected}")
-        try:
-            return self._get_session().get(
-                url, headers=self._headers, params=params, timeout=self._timeout
-            )
-        except OSError as ex:
-            self._connected = False
-            self.close_session()
-            raise PySuezError("Error during get query to " + url) from ex
+        _LOGGER.debug(f"Try requesting {url}")
+
+        remaing_attempt = MAX_REQUEST_ATTEMPT
+        while remaing_attempt > 0:
+            remaing_attempt -= 1
+            try:
+                async with self._get_session().get(
+                    url,
+                    headers=self._headers,
+                    params=params,
+                    timeout=self._timeout,
+                    allow_redirects=not read,
+                ) as response:
+                    self._check_request_status(response, url)
+                    if not read:
+                        return
+                    if read == "json":
+                        return await response.json()
+                    return await response.text()
+            except PySuezConnexionNeededException as err:
+                if remaing_attempt > 0:
+                    await self._connect()
+                else:
+                    raise err
+            except Exception as ex:
+                self.close_session()
+                if remaing_attempt == 0:
+                    raise PySuezError(f"Error during get query to {url}") from ex
+                else:
+                    _LOGGER.warning(f"Discarded error during query to {url}", ex)
 
     def _get_session(self) -> ClientSession:
         if self._session is not None:
@@ -394,26 +397,17 @@ class SuezClient:
     async def _get_credential_query(self):
         await self._get_token()
         data = {
-            "_username": self._username,
-            "_password": self._password,
             "_csrf_token": self._token,
-            "signin[username]": self._username,
-            "signin[password]": None,
             "tsme_user_login[_username]": self._username,
             "tsme_user_login[_password]": self._password,
         }
-        url = self._get_url(BASE_URI, API_ENDPOINT_LOGIN, with_counter_id=False)
+        url = self._get_url(self._hostname, API_ENDPOINT_LOGIN, with_counter_id=False)
         return data, url
 
     async def _logout(self) -> None:
-        if self._session is not None and self._connected:
-            async with await self._get(
-                "/mon-compte-en-ligne/deconnexion", need_connection=False
-            ) as disconnection:
-                if disconnection.status >= 400:
-                    raise PySuezError("Disconnection failed")
-                _LOGGER.debug("Successfully logged out from suez")
-            self._connected = False
+        if self._session is not None:
+            await self._get("/mon-compte-en-ligne/deconnexion", read=False)
+            _LOGGER.debug("Successfully logged out from suez")
 
     def _get_url(self, *url: str, with_counter_id: bool) -> str:
         res = ""
@@ -430,3 +424,18 @@ class SuezClient:
                 res += "/"
             res += str(self._counter_id)
         return res
+
+    def _check_request_status(self, response: ClientResponse, url: str) -> bool:
+        _LOGGER.debug(f"{url} responded with {response.status}")
+        if response.status >= 200 and response.status < 300:
+            return True
+        if response.status >= 300 and response.status < 400:
+            redirection_target = response.headers.get("Location")
+            if redirection_target and API_ENDPOINT_LOGIN in redirection_target:
+                raise PySuezConnexionNeededException(
+                    f"Redirected to {redirection_target}, should log again"
+                )
+            else:
+                _LOGGER.debug(f"Ignored redirection to {redirection_target}")
+                return True
+        raise PySuezError(f"Unexpected response status {response.status} for {url}")
