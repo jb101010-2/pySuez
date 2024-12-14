@@ -77,7 +77,7 @@ class InterventionResult:
 
 class PriceResult:
     def __init__(self, price: str):
-        self.price = float(price.replace(",", "."))
+        self.price = float(price.replace(",", ".")) if price else None
 
     def __str__(self):
         return "PriceResult price={0}€".format(self.price)

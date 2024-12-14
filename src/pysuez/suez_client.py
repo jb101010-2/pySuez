@@ -250,11 +250,11 @@ class SuezClient:
             alert_response.content.overconsumption.status != "NO_ALERT",
         )
 
-    async def get_price(self) -> PriceResult:
-        """Fetch water price in e/m3"""
+    async def get_price(self) -> PriceResult | None:
+        """Fetch water price in €/m3"""
         contract = await self.contract_data()
         json = await self._get(INFORMATION_ENDPOINT_PRICE, contract.inseeCode)
-        return PriceResult(**json)
+        return PriceResult(**json) if json else None
 
     async def get_water_quality(self) -> QualityResult:
         """Fetch water quality"""
