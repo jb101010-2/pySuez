@@ -106,19 +106,19 @@ class ContractResult:
     def __init__(self, content: dict):
         self.name = content["name"]
         self.inseeCode = content["inseeCode"]
-        self.brandCode = content["brandCode"]
-        self.fullRefFormat = content["fullRefFormat"]
-        self.fullRef = content["fullRef"]
-        self.addrServed = content["addrServed"]
+        #self.brandCode = content["brandCode"]
+        #self.fullRefFormat = content["fullRefFormat"]
+        #self.fullRef = content["fullRef"]
+        #self.addrServed = content["addrServed"]
         self.isActif = content["isActif"]
-        self.website_link = content["website-link"]
-        self.searchData = content["searchData"]
+        #self.website_link = content["website-link"]
+        #self.searchData = content["searchData"]
         self.isCurrentContract = content["isCurrentContract"]
-        self.codeSituation = content["codeSituation"]
+        #self.codeSituation = content["codeSituation"]
 
     def __str__(self):
-        return "ContractResult name={0}, inseeCode={1}, addrServed={2}".format(
-            self.name, self.inseeCode, self.addrServed
+        return "ContractResult inseeCode={0}, isActif={1}, isCurrentContract={2}".format(
+            self.inseeCode, self.isActif, self.isCurrentContract
         )
 
 

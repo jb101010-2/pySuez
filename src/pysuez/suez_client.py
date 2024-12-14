@@ -277,10 +277,14 @@ class SuezClient:
         json = await self._get(INFORMATION_ENDPOINT_LIMESTONE, contract.inseeCode)
         return LimestoneResult(**json)
 
-    async def contract_data(self) -> ContractResult:
+    async def contract_data(self) -> ContractResult | None:
         url = "/public-api/user/donnees-contrats"
         json = await self._get(url)
-        return ContractResult(json[0])
+        for json_contract in json:
+            contract = ContractResult(json_contract)
+            if contract.isActif and contract.isCurrentContract:
+                return contract
+        return None
 
     async def _fetch_aggregated_statistics(
         self,
