@@ -9,7 +9,7 @@ from pysuez.utils import cubic_meters_to_liters
 class AggregatedData:
     """Hold suez water aggregated sensor data."""
 
-    value: float
+    value: None | float
     current_month: dict[date, float]
     previous_month: dict[date, float]
     previous_year: dict[str, float]

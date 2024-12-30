@@ -51,7 +51,7 @@ class SuezClient:
     """Client used to interact with suez website."""
 
     _token: str | None = None
-    _headers: dict | None = None
+    _headers: dict[str, str] | None = None
     _session: ClientSession | None = None
 
     def __init__(
@@ -172,7 +172,7 @@ class SuezClient:
                 str(since),
                 str(current),
             )
-            result = []
+            result: list[DayDataResult] = []
             while since is None or current >= since:
                 try:
                     _LOGGER.debug("Fetch data of " + str(current))
@@ -211,7 +211,7 @@ class SuezClient:
             last_month_year = int(today_year) - 1
         else:
             last_month = int(today_month) - 1
-            last_month_year = today_year
+            last_month_year = int(today_year)
 
         previous_month_data = await self.fetch_month_data(last_month_year, last_month)
         previous_month = {}
@@ -293,7 +293,10 @@ class SuezClient:
         """Get all user contracts."""
         url = "/public-api/user/donnees-contrats"
         json = await self._get(url)
-        return [ContractResult(contract) for contract in json]
+        contracts: list[ContractResult] = []
+        for contract in json:
+            contracts.append(ContractResult(contract))
+        return contracts
 
     async def contract_data(self) -> ContractResult:
         """Get first contract."""
@@ -329,10 +332,10 @@ class SuezClient:
         async with session.get(url, headers=headers, timeout=self._timeout) as response:
             headers["Cookie"] = ""
             cookies = response.cookies
-            for key in cookies.keys():
+            for key, value in cookies.items():
                 if headers["Cookie"]:
                     headers["Cookie"] += "; "
-                headers["Cookie"] += key + "=" + cookies.get(key).value
+                headers["Cookie"] += key + "=" + value.value
 
             page = await response.text("utf-8")
             self._token = extract_token(page)
@@ -342,6 +345,8 @@ class SuezClient:
         """Connect and get the cookie"""
         data, url = await self._get_credential_query()
         try:
+            if self._headers is None:
+                raise PySuezError("Invalid api state")
             session = self._get_session()
             async with session.post(
                 url,
@@ -374,21 +379,21 @@ class SuezClient:
     async def _get(
         self, *url: str, with_counter_id=False, params=None, read: str | None = "json"
     ) -> Any:
-        url = self._get_url(self._hostname, *url, with_counter_id=with_counter_id)
-        _LOGGER.debug(f"Try requesting {url}")
+        real_url :str = self._get_url(self._hostname, *url, with_counter_id=with_counter_id)
+        _LOGGER.debug(f"Try requesting {real_url}")
 
         remaing_attempt = MAX_REQUEST_ATTEMPT
         while remaing_attempt > 0:
             remaing_attempt -= 1
             try:
                 async with self._get_session().get(
-                    url,
+                    url=real_url,
                     headers=self._headers,
                     params=params,
                     timeout=self._timeout,
                     allow_redirects=not read,
                 ) as response:
-                    self._check_request_status(response, url)
+                    self._check_request_status(response, real_url)
                     if not read:
                         return
                     if read == "json":
@@ -424,7 +429,7 @@ class SuezClient:
 
     async def _logout(self) -> None:
         if self._session is not None:
-            await self._get("/mon-compte-en-ligne/deconnexion", read=False)
+            await self._get("/mon-compte-en-ligne/deconnexion", read="text")
             _LOGGER.debug("Successfully logged out from suez")
 
     def _get_url(self, *url: str, with_counter_id: bool) -> str:
