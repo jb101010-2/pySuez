@@ -58,7 +58,7 @@ class SuezClient:
         self,
         username: str,
         password: str,
-        counter_id: int | None,
+        counter_id: str | None,
         timeout: ClientTimeout | None = None,
         url: str = BASE_URI,
     ) -> None:
@@ -82,7 +82,7 @@ class SuezClient:
         finally:
             await self.close_session()
 
-    async def find_counter(self) -> int:
+    async def find_counter(self) -> str:
         _LOGGER.debug("Try finding counter")
         page_url = API_HISTORY_CONSUMPTION
         text = await self._get(page_url, read="text")
@@ -93,7 +93,7 @@ class SuezClient:
         )
         if match is None:
             raise PySuezError("Counter id not found")
-        self._counter_id = int(match.group(1))
+        self._counter_id = match.group(1)
         _LOGGER.debug("Found counter {}".format(self._counter_id))
         return self._counter_id
 
@@ -277,10 +277,27 @@ class SuezClient:
         json = await self._get(INFORMATION_ENDPOINT_LIMESTONE, contract.inseeCode)
         return LimestoneResult(**json)
 
-    async def contract_data(self) -> ContractResult:
+    async def redirect_to_contract(self, fullRefFormat: str) -> bool:
+        """Redirect to given contract.
+
+        Return true if redirection succeeds, false if any error happened."""
+        url = f"{self._hostname}/mon-compte-en-ligne/redirect/{fullRefFormat}?redirect=/mon-compte-en-ligne/tableau-de-bord"
+        try:
+            await self._get(url, read="text")
+            return True
+        except Exception:
+            _LOGGER.exception("Failed to redirect to contract")
+            return False
+
+    async def get_all_contracts(self) -> list[ContractResult]:
+        """Get all user contracts."""
         url = "/public-api/user/donnees-contrats"
         json = await self._get(url)
-        return ContractResult(json[0])
+        return [ContractResult(contract) for contract in json]
+
+    async def contract_data(self) -> ContractResult:
+        """Get first contract."""
+        return (await self.get_all_contracts())[0]
 
     async def _fetch_aggregated_statistics(
         self,
