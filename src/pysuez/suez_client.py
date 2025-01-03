@@ -277,7 +277,7 @@ class SuezClient:
         json = await self._get(INFORMATION_ENDPOINT_LIMESTONE, contract.inseeCode)
         return LimestoneResult(**json)
 
-    async def redirect_to_contract(self, fullRefFormat: str) -> bool:
+    async def use_contract(self, fullRefFormat: str) -> bool:
         """Redirect to given contract.
 
         Return true if redirection succeeds, false if any error happened."""
@@ -289,13 +289,25 @@ class SuezClient:
             _LOGGER.exception("Failed to redirect to contract")
             return False
 
-    async def get_all_contracts(self) -> list[ContractResult]:
+    async def get_contract_with_counter(self, contract: ContractResult) -> None:
+        counter: str | None = None
+        if await self.use_contract(contract.fullRefFormat):
+            try:
+                counter = await self.find_counter()
+            except PySuezError:
+                counter = None
+        contract.counter = counter
+
+    async def get_all_contracts(self, with_counter = False) -> list[ContractResult]:
         """Get all user contracts."""
         url = "/public-api/user/donnees-contrats"
         json = await self._get(url)
         contracts: list[ContractResult] = []
-        for contract in json:
-            contracts.append(ContractResult(contract))
+        for json_contract in json:
+            contract = ContractResult(json_contract)
+            if with_counter:
+                await self.get_contract_with_counter(contract)
+            contracts.append(contract)
         return contracts
 
     async def contract_data(self) -> ContractResult:

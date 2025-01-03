@@ -103,6 +103,8 @@ class LimestoneResult:
 
 
 class ContractResult:
+    counter: None | str
+
     def __init__(self, content: dict):
         self.name = content["name"]
         self.inseeCode = content["inseeCode"]
