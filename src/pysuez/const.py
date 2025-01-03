@@ -3,6 +3,7 @@ API_ENDPOINT_LOGIN = "/mon-compte-en-ligne/je-me-connecte"
 
 ATTRIBUTION = "Data provided by toutsurmoneau.fr"
 
+API_ENDPOINT_METERS = "/public-api/cel-consumption/meters-list"
 API_ENDPOINT_ALERT = "/public-api/contract/tile/alerts"
 _INFORMATION_ENDPOINT = "/information/donnee/"
 INFORMATION_ENDPOINT_INTERVENTION = _INFORMATION_ENDPOINT + "intervention/"

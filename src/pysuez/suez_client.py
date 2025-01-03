@@ -13,6 +13,7 @@ from pysuez.const import (
     API_ENDPOINT_ALERT,
     API_ENDPOINT_DAILY_DATA,
     API_ENDPOINT_LOGIN,
+    API_ENDPOINT_METERS,
     API_ENDPOINT_MONTH_DATA,
     API_HISTORY_CONSUMPTION,
     ATTRIBUTION,
@@ -39,6 +40,7 @@ from pysuez.models import (
     DayDataResult,
     InterventionResult,
     LimestoneResult,
+    MeterListResult,
     PriceResult,
     QualityResult,
 )
@@ -84,16 +86,12 @@ class SuezClient:
 
     async def find_counter(self) -> int:
         _LOGGER.debug("Try finding counter")
-        page_url = API_HISTORY_CONSUMPTION
-        text = await self._get(page_url, read="text")
-        match = re.search(
-            r"'\/mon-compte-en-ligne\/statMData'\s\+\s'/(\d+)'",
-            text,
-            re.MULTILINE,
-        )
-        if match is None:
-            raise PySuezError("Counter id not found")
-        self._counter_id = int(match.group(1))
+
+        meters = await self.get_meters()
+        
+        if meters.message != 'OK':
+            raise PySuezError("Error while fetching meter id")
+        self._counter_id = meters.content.clientCompteursPro[0].compteursPro[0].idPDS
         _LOGGER.debug("Found counter {}".format(self._counter_id))
         return self._counter_id
 
@@ -249,6 +247,11 @@ class SuezClient:
             alert_response.content.leak.status != "NO_ALERT",
             alert_response.content.overconsumption.status != "NO_ALERT",
         )
+
+    async def get_meters(self) -> MeterListResult:
+        json = await self._get(API_ENDPOINT_METERS)
+        meter_result = MeterListResult(**json)
+        return meter_result
 
     async def get_price(self) -> PriceResult:
         """Fetch water price in e/m3"""

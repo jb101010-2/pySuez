@@ -122,6 +122,110 @@ class ContractResult:
         )
 
 
+class MeterPro:
+    def __init__(
+        self,
+        adresseDesserte,
+        adresseDesserte1,
+        adresseDesserte2,
+        adresseDesserte3,
+        anneeFabrication,
+        calibre,
+        causeFermeture,
+        codeEmplacement,
+        codeEquipement,
+        compteurDivisionnaire,
+        compteurGeneral,
+        cpDesserte,
+        etatCompteur,
+        etatPDS,
+        fluide,
+        idAdresse,
+        idPDS,
+        idSite,
+        libelleCodeEmplacement,
+        matriculeCompteur,
+        numeroBadge,
+        typeProprietaire,
+        typeRaccordement,
+        usage,
+        villeDesserte,
+    ):
+        self.adresseDesserte = adresseDesserte
+        self.adresseDesserte1 = adresseDesserte1
+        self.adresseDesserte2 = adresseDesserte2
+        self.adresseDesserte3 = adresseDesserte3
+        self.anneeFabrication = anneeFabrication
+        self.calibre = calibre
+        self.causeFermeture = causeFermeture
+        self.codeEmplacement = codeEmplacement
+        self.codeEquipement = codeEquipement
+        self.compteurDivisionnaire = compteurDivisionnaire
+        self.compteurGeneral = compteurGeneral
+        self.cpDesserte = cpDesserte
+        self.etatCompteur = etatCompteur
+        self.etatPDS = etatPDS
+        self.fluide = fluide
+        self.idAdresse = idAdresse
+        self.idPDS = idPDS
+        self.idSite = idSite
+        self.libelleCodeEmplacement = libelleCodeEmplacement
+        self.matriculeCompteur = matriculeCompteur
+        self.numeroBadge = numeroBadge
+        self.typeProprietaire = typeProprietaire
+        self.typeRaccordement = typeRaccordement
+        self.usage = usage
+        self.villeDesserte = villeDesserte
+
+
+class MeterClientPro:
+    def __init__(
+        self,
+        compteursPro,
+        dateDebutDerniereConsoRelevee,
+        dateFinDerniereConsoRelevee,
+        derniereConsoRelevee,
+        name,
+        nbCompteurTotal,
+        nombreCompteurRr,
+        nombreCompteurSe,
+        nombreCompteurTr,
+        reference,
+        roles,
+    ):
+        self.compteursPro = [MeterPro(**compteur) for compteur in compteursPro]
+        self.dateDebutDerniereConsoRelevee = dateDebutDerniereConsoRelevee
+        self.dateFinDerniereConsoRelevee = dateFinDerniereConsoRelevee
+        self.derniereConsoRelevee = derniereConsoRelevee
+        self.name = name
+        self.nbCompteurTotal = nbCompteurTotal
+        self.nombreCompteurRr = nombreCompteurRr
+        self.nombreCompteurSe = nombreCompteurSe
+        self.nombreCompteurTr = nombreCompteurTr
+        self.reference = reference
+        self.roles = roles
+
+
+class MeterListContent:
+    def __init__(
+        self, clientCompteursPro, nbCodeRef, nbCodeRefFull, nbCompteurFull, nbMeters
+    ):
+        self.clientCompteursPro = [
+            MeterClientPro(**compteur) for compteur in clientCompteursPro
+        ]
+        self.nbCodeRef = nbCodeRef
+        self.nbCodeRefFull = nbCodeRefFull
+        self.nbCompteurFull = nbCompteurFull
+        self.nbMeters = nbMeters
+
+
+class MeterListResult:
+    def __init__(self, code, content, message):
+        self.code = code
+        self.content = MeterListContent(**content)
+        self.message = message
+
+
 class AlertQueryValueResult:
     def __init__(self, isActive, status, message, buttons):
         self.is_active = isActive
