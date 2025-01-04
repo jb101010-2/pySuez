@@ -15,6 +15,8 @@ API_CONSUMPTION_INDEX = "/public-api/contract/tile/consumption"
 API_ENDPOINT_MONTH_DATA = "/mon-compte-en-ligne/statMData/"
 API_HISTORY_CONSUMPTION = "/mon-compte-en-ligne/historique-de-consommation-tr"
 
+API_ENPOINT_TELEMETRY = "/public-api/cel-consumption/telemetry"
+
 
 TOKEN_HEADERS = {
     "Accept": "application/json, text/javascript, */*; q=0.01",

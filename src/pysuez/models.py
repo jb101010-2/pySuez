@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from pysuez.utils import cubic_meters_to_liters
@@ -62,6 +62,32 @@ class DayDataResult:
             self.day_consumption,
             self.total_consumption,
         )
+
+
+class TelemetryMeasure:
+    def __init__(self, date, index, volume):
+        self.date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        self.index = index
+        self.volume = volume
+
+    def __str__(self):
+        return "TelemetryMeasure ({0},{1},{2})".format(
+            str(self.date), self.index, self.volume
+        )
+
+
+class TelemetryResultContent:
+    def __init__(self, measures):
+        self.measures: list[TelemetryMeasure] = list()
+        for measure in measures:
+            self.measures.append(TelemetryMeasure(**measure))
+
+
+class TelemetryResult:
+    def __init__(self, code: str, content, message: str):
+        self.code = code
+        self.content = TelemetryResultContent(**content)
+        self.message = message
 
 
 @dataclass

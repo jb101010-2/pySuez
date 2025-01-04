@@ -1,4 +1,5 @@
 import asyncio
+from enum import Enum
 import logging
 import re
 from datetime import date, datetime, timedelta
@@ -15,6 +16,7 @@ from pysuez.const import (
     API_ENDPOINT_LOGIN,
     API_ENDPOINT_METERS,
     API_ENDPOINT_MONTH_DATA,
+    API_ENPOINT_TELEMETRY,
     API_HISTORY_CONSUMPTION,
     ATTRIBUTION,
     BASE_URI,
@@ -43,10 +45,16 @@ from pysuez.models import (
     MeterListResult,
     PriceResult,
     QualityResult,
+    TelemetryResult,
 )
 from pysuez.utils import cubic_meters_to_liters, extract_token
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class TelemetryMode(Enum):
+    DAILY = "daily"
+    MONTHLY = "monthly"
 
 
 class SuezClient:
@@ -88,8 +96,8 @@ class SuezClient:
         _LOGGER.debug("Try finding counter")
 
         meters = await self.get_meters()
-        
-        if meters.message != 'OK':
+
+        if meters.message != "OK":
             raise PySuezError("Error while fetching meter id")
         self._counter_id = meters.content.clientCompteursPro[0].compteursPro[0].idPDS
         _LOGGER.debug("Found counter {}".format(self._counter_id))
@@ -99,8 +107,11 @@ class SuezClient:
         """Close current session."""
         if self._session is not None:
             _LOGGER.debug("Closing suez session")
-            await self._logout()
-            await self._session.close()
+            try:
+                await self._logout()
+            finally:
+                await self._session.close()
+
             _LOGGER.debug("Successfully closed suez session")
         self._session = None
 
@@ -186,6 +197,23 @@ class SuezClient:
                 except PySuezDataError:
                     return result
             return result
+
+    async def fetch_telemetry(
+        self, mode: TelemetryMode, start: date, end: date | None = None
+    ) -> TelemetryResult:
+        _LOGGER.debug("Fetch %s telemetry from %s to %s", mode, start, end)
+        if not end:
+            end = datetime.now().date()
+        telemetry_json = await self._get(
+            API_ENPOINT_TELEMETRY,
+            params={
+                "id_PDS": self._counter_id,
+                "mode": mode.value,
+                "start_date": start.strftime("%Y-%m-%d"),
+                "end_date": end.strftime("%Y-%m-%d"),
+            },
+        )
+        return TelemetryResult(**telemetry_json)
 
     async def fetch_aggregated_data(self) -> AggregatedData:
         """Fetch latest data from Suez."""
@@ -358,7 +386,11 @@ class SuezClient:
             raise PySuezConnexionError("Can not submit login form.")
 
     async def _get(
-        self, *url: str, with_counter_id=False, params=None, read: str | None = "json"
+        self,
+        *url: str,
+        with_counter_id=False,
+        params: None | dict[str, Any] = None,
+        read: str | None = "json",
     ) -> Any:
         url = self._get_url(self._hostname, *url, with_counter_id=with_counter_id)
         _LOGGER.debug(f"Try requesting {url}")
@@ -386,11 +418,11 @@ class SuezClient:
                 else:
                     raise err
             except Exception as ex:
-                await self.close_session()
+                # await self.close_session()
                 if remaing_attempt == 0:
                     raise PySuezError(f"Error during get query to {url}") from ex
                 else:
-                    _LOGGER.warning(f"Discarded error during query to {url}", ex)
+                    _LOGGER.warning(f"Discarded error during query to {url}")
 
     def _get_session(self) -> ClientSession:
         if self._session is not None:
