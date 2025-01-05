@@ -1,11 +1,13 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
+import warnings
 
 from pysuez.utils import cubic_meters_to_liters
 
 
 @dataclass
+@warnings.deprecated("Deprecated along API")
 class AggregatedData:
     """Hold suez water aggregated sensor data."""
 
@@ -50,17 +52,41 @@ class ConsumptionIndexResult:
         self.message = message
 
 
-@dataclass
-class DayDataResult:
-    date: date
-    day_consumption: float
-    total_consumption: float
+class TelemetryMeasure:
+    def __init__(self, date, index, volume, numberOfDays=None):
+        self.date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        self.index = index
+        self.volume = volume
+        self.number_of_days = numberOfDays
 
     def __str__(self):
-        return "DayDataResult {0}, current={1}, total={2}".format(
-            self.date,
-            self.day_consumption,
-            self.total_consumption,
+        return "TelemetryMeasure ({0},{1},{2})".format(
+            str(self.date), self.index, self.volume
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class TelemetryResultContent:
+    def __init__(self, measures):
+        self.measures: list[TelemetryMeasure] = []
+        for measure in measures:
+            self.measures.append(TelemetryMeasure(**measure))
+
+    def __str__(self):
+        return "TelemetryResultContent ({0})".format(self.measures)
+
+
+class TelemetryResult:
+    def __init__(self, code: str, content, message: str):
+        self.code = code
+        self.content = TelemetryResultContent(**content)
+        self.message = message
+
+    def __str__(self):
+        return "TelemetryResult ({0}, {1}, {2})".format(
+            self.code, self.message, self.content
         )
 
 
@@ -73,6 +99,15 @@ class InterventionResult:
         return "InterventionResult onGoing={0}, incoming={1}".format(
             self.ongoingInterventionCount, self.comingInterventionCount
         )
+
+
+@dataclass
+class ErrorResponse:
+    content: Any
+    code: str
+    message: str
+    trackableMessage: str
+    response: Any
 
 
 class PriceResult:
@@ -120,6 +155,110 @@ class ContractResult:
         return "ContractResult name={0}, inseeCode={1}, addrServed={2}".format(
             self.name, self.inseeCode, self.addrServed
         )
+
+
+class MeterPro:
+    def __init__(
+        self,
+        adresseDesserte,
+        adresseDesserte1,
+        adresseDesserte2,
+        adresseDesserte3,
+        anneeFabrication,
+        calibre,
+        causeFermeture,
+        codeEmplacement,
+        codeEquipement,
+        compteurDivisionnaire,
+        compteurGeneral,
+        cpDesserte,
+        etatCompteur,
+        etatPDS,
+        fluide,
+        idAdresse,
+        idPDS,
+        idSite,
+        libelleCodeEmplacement,
+        matriculeCompteur,
+        numeroBadge,
+        typeProprietaire,
+        typeRaccordement,
+        usage,
+        villeDesserte,
+    ):
+        self.adresseDesserte = adresseDesserte
+        self.adresseDesserte1 = adresseDesserte1
+        self.adresseDesserte2 = adresseDesserte2
+        self.adresseDesserte3 = adresseDesserte3
+        self.anneeFabrication = anneeFabrication
+        self.calibre = calibre
+        self.causeFermeture = causeFermeture
+        self.codeEmplacement = codeEmplacement
+        self.codeEquipement = codeEquipement
+        self.compteurDivisionnaire = compteurDivisionnaire
+        self.compteurGeneral = compteurGeneral
+        self.cpDesserte = cpDesserte
+        self.etatCompteur = etatCompteur
+        self.etatPDS = etatPDS
+        self.fluide = fluide
+        self.idAdresse = idAdresse
+        self.idPDS = idPDS
+        self.idSite = idSite
+        self.libelleCodeEmplacement = libelleCodeEmplacement
+        self.matriculeCompteur = matriculeCompteur
+        self.numeroBadge = numeroBadge
+        self.typeProprietaire = typeProprietaire
+        self.typeRaccordement = typeRaccordement
+        self.usage = usage
+        self.villeDesserte = villeDesserte
+
+
+class MeterClientPro:
+    def __init__(
+        self,
+        compteursPro,
+        dateDebutDerniereConsoRelevee,
+        dateFinDerniereConsoRelevee,
+        derniereConsoRelevee,
+        name,
+        nbCompteurTotal,
+        nombreCompteurRr,
+        nombreCompteurSe,
+        nombreCompteurTr,
+        reference,
+        roles,
+    ):
+        self.compteursPro = [MeterPro(**compteur) for compteur in compteursPro]
+        self.dateDebutDerniereConsoRelevee = dateDebutDerniereConsoRelevee
+        self.dateFinDerniereConsoRelevee = dateFinDerniereConsoRelevee
+        self.derniereConsoRelevee = derniereConsoRelevee
+        self.name = name
+        self.nbCompteurTotal = nbCompteurTotal
+        self.nombreCompteurRr = nombreCompteurRr
+        self.nombreCompteurSe = nombreCompteurSe
+        self.nombreCompteurTr = nombreCompteurTr
+        self.reference = reference
+        self.roles = roles
+
+
+class MeterListContent:
+    def __init__(
+        self, clientCompteursPro, nbCodeRef, nbCodeRefFull, nbCompteurFull, nbMeters
+    ):
+        self.clientCompteursPro = [
+            MeterClientPro(**compteur) for compteur in clientCompteursPro
+        ]
+        self.nbCodeRef = nbCodeRef
+        self.nbCodeRefFull = nbCodeRefFull
+        self.nbCompteurFull = nbCompteurFull
+        self.nbMeters = nbMeters
+
+
+class MeterListResult:
+    def __init__(self, code, content, message):
+        self.code = code
+        self.content = MeterListContent(**content)
+        self.message = message
 
 
 class AlertQueryValueResult:

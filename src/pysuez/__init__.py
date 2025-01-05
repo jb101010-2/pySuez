@@ -2,12 +2,12 @@ from pysuez.models import (
     AggregatedData,
     AlertResult,
     ContractResult,
-    DayDataResult,
     InterventionResult,
     LimestoneResult,
     PriceResult,
     QualityResult,
+    TelemetryMeasure,
 )
 
 from pysuez.exception import PySuezConnexionError, PySuezDataError, PySuezError
-from pysuez.suez_client import SuezClient
+from pysuez.suez_client import SuezClient, TelemetryMode

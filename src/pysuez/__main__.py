@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timedelta
 
 from pysuez.const import BASE_URI
-from pysuez.suez_client import SuezClient
+from pysuez.suez_client import SuezClient, TelemetryMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +40,16 @@ async def main():
         if args.counter_id is None:
             await client.find_counter()
 
-        if args.mode == "alerts":
+        if args.mode == "telemetry":
+            _LOGGER.info("Getting telemetry for 90 days")
+            start = datetime.now().date() - timedelta(days=90)
+
+            telemetry = await client.fetch_telemetry(
+                mode=TelemetryMode.DAILY, start=start
+            )
+            _LOGGER.info("Got telemetry result: ")
+            _LOGGER.info(telemetry)
+        elif args.mode == "alerts":
             _LOGGER.info("getting alerts")
             alerts = await client.get_alerts()
             _LOGGER.info("leak=", alerts.leak, ", consumption=", alerts.overconsumption)
@@ -61,8 +70,8 @@ async def main():
             _LOGGER.info(await client.fetch_aggregated_data())
         else:
             _LOGGER.info(await client.fetch_aggregated_data())
-    except BaseException as exp:
-        print(exp)
+    except BaseException:
+        _LOGGER.exception()
         return 1
     finally:
         await client.close_session()
