@@ -1,10 +1,8 @@
 import asyncio
 from enum import Enum
 import logging
-import re
 from datetime import date, datetime, timedelta
 from typing import Any
-import warnings
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
@@ -180,9 +178,6 @@ class SuezClient:
             return TelemetryResult(**telemetry_json).content.measures
         return []
 
-    @warnings.deprecated(
-        "This api was used to retrieve all data and will stop working soon"
-    )
     async def fetch_aggregated_data(self) -> AggregatedData:
         """Fetch latest data from Suez."""
         now = datetime.now()

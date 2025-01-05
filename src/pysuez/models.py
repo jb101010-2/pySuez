@@ -1,13 +1,11 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
-import warnings
 
 from pysuez.utils import cubic_meters_to_liters
 
 
 @dataclass
-@warnings.deprecated("Deprecated along API")
 class AggregatedData:
     """Hold suez water aggregated sensor data."""
 
