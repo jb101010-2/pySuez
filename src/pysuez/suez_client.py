@@ -4,6 +4,7 @@ import logging
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
+import warnings
 
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
@@ -12,12 +13,10 @@ from aiohttp.client import ClientResponse
 from pysuez.const import (
     API_CONSUMPTION_INDEX,
     API_ENDPOINT_ALERT,
-    API_ENDPOINT_DAILY_DATA,
     API_ENDPOINT_LOGIN,
     API_ENDPOINT_METERS,
     API_ENDPOINT_MONTH_DATA,
     API_ENPOINT_TELEMETRY,
-    API_HISTORY_CONSUMPTION,
     ATTRIBUTION,
     BASE_URI,
     INFORMATION_ENDPOINT_INTERVENTION,
@@ -39,15 +38,16 @@ from pysuez.models import (
     AlertResult,
     ConsumptionIndexResult,
     ContractResult,
-    DayDataResult,
     InterventionResult,
     LimestoneResult,
     MeterListResult,
     PriceResult,
     QualityResult,
+    TelemetryMeasure,
     TelemetryResult,
+    ErrorResponse,
 )
-from pysuez.utils import cubic_meters_to_liters, extract_token
+from pysuez.utils import cubic_meters_to_liters, extract_token, next_month
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,65 +115,27 @@ class SuezClient:
             _LOGGER.debug("Successfully closed suez session")
         self._session = None
 
-    async def fetch_day_data(self, date: datetime | date) -> DayDataResult | None:
-        """Retrieve requested day consumption if available or none if not.
-
-        ! This method will retrieve all month data"""
-        year = date.year
-        month = date.month
-
-        result_by_day = await self.fetch_month_data(year, month)
-        if len(result_by_day) == 0:
-            return None
-        return result_by_day[len(result_by_day) - 1]
-
-    async def fetch_yesterday_data(self) -> DayDataResult | None:
-        """Retrieve yesterday consumption if available or none if not.
-
-        ! This method will retrieve all month data"""
+    async def fetch_yesterday_data(self) -> TelemetryMeasure | None:
+        """Retrieve yesterday consumption if available or none if not."""
         now = datetime.now()
         yesterday = now - timedelta(days=1)
-        return await self.fetch_day_data(yesterday)
+        telemetry = await self.fetch_telemetry(
+            mode=TelemetryMode.DAILY, start=yesterday.date()
+        )
+        return telemetry[0] if len(telemetry) > 0 else None
 
-    async def fetch_month_data(self, year, month) -> list[DayDataResult]:
+    async def fetch_month_data(self, year: int, month: int) -> list[TelemetryMeasure]:
         now = datetime.now()
 
-        result_by_day = await self._get(
-            API_ENDPOINT_DAILY_DATA,
-            year,
-            month,
-            with_counter_id=True,
-            params={"_=": now.timestamp()},
-        )
-        if result_by_day[0] == "ERR":
-            _LOGGER.debug(
-                "Error while requesting data for {}/{}: {}".format(
-                    year, month, result_by_day[1]
-                )
-            )
-            return []
+        requested_date = now.replace(year=year, month=month, day=1).date()
 
-        result = []
-        for day in result_by_day:
-            date = datetime.strptime(day[0], "%d/%m/%Y")
-            try:
-                total = float(day[2])
-                if total > 0:
-                    result.append(
-                        DayDataResult(
-                            date.date(),
-                            cubic_meters_to_liters(float(day[1])),
-                            total,
-                        )
-                    )
-            except ValueError:
-                _LOGGER.debug(f"Failed to parse consumption value:{day[1]} / {day[0]} ")
-                return result
-        return result
+        return await self.fetch_telemetry(
+            TelemetryMode.DAILY, requested_date, next_month(requested_date)
+        )
 
     async def fetch_all_daily_data(
         self, since: date | None = None, timeout: int | None = 60
-    ) -> list[DayDataResult]:
+    ) -> list[TelemetryMeasure]:
         async with asyncio.timeout(timeout):
             current = datetime.now().date()
             _LOGGER.debug(
@@ -200,7 +162,7 @@ class SuezClient:
 
     async def fetch_telemetry(
         self, mode: TelemetryMode, start: date, end: date | None = None
-    ) -> TelemetryResult:
+    ) -> list[TelemetryMeasure]:
         _LOGGER.debug("Fetch %s telemetry from %s to %s", mode, start, end)
         if not end:
             end = datetime.now().date()
@@ -212,37 +174,43 @@ class SuezClient:
                 "start_date": start.strftime("%Y-%m-%d"),
                 "end_date": end.strftime("%Y-%m-%d"),
             },
+            none_error_code="02",
         )
-        return TelemetryResult(**telemetry_json)
+        if telemetry_json:
+            return TelemetryResult(**telemetry_json).content.measures
+        return []
 
+    @warnings.deprecated(
+        "This api was used to retrieve all data and will stop working soon"
+    )
     async def fetch_aggregated_data(self) -> AggregatedData:
         """Fetch latest data from Suez."""
         now = datetime.now()
-        today_year = now.strftime("%Y")
-        today_month = now.strftime("%m")
+        today_year = int(now.strftime("%Y"))
+        today_month = int(now.strftime("%m"))
 
         yesterday_data = await self.fetch_yesterday_data()
         if yesterday_data is not None:
-            state = yesterday_data.day_consumption
+            state = yesterday_data.volume
         else:
             state = None
 
         month_data = await self.fetch_month_data(today_year, today_month)
         current_month = {}
         for item in month_data:
-            current_month[item.date] = item.day_consumption
+            current_month[item.date] = item.volume
 
         if int(today_month) == 1:
             last_month = 12
-            last_month_year = int(today_year) - 1
+            last_month_year = today_year - 1
         else:
-            last_month = int(today_month) - 1
+            last_month = today_month - 1
             last_month_year = today_year
 
         previous_month_data = await self.fetch_month_data(last_month_year, last_month)
         previous_month = {}
         for item in previous_month_data:
-            previous_month[item.date] = item.day_consumption
+            previous_month[item.date] = item.volume
 
         (
             highest_monthly_consumption,
@@ -391,7 +359,8 @@ class SuezClient:
         with_counter_id=False,
         params: None | dict[str, Any] = None,
         read: str | None = "json",
-    ) -> Any:
+        none_error_code: None | str = None,
+    ) -> None | Any:
         url = self._get_url(self._hostname, *url, with_counter_id=with_counter_id)
         _LOGGER.debug(f"Try requesting {url}")
 
@@ -406,7 +375,10 @@ class SuezClient:
                     timeout=self._timeout,
                     allow_redirects=not read,
                 ) as response:
-                    self._check_request_status(response, url)
+                    if not await self._check_request_status(
+                        response, url, none_error_code
+                    ):
+                        return None
                     if not read:
                         return
                     if read == "json":
@@ -422,7 +394,9 @@ class SuezClient:
                 if remaing_attempt == 0:
                     raise PySuezError(f"Error during get query to {url}") from ex
                 else:
-                    _LOGGER.warning(f"Discarded error during query to {url}")
+                    _LOGGER.warning(
+                        f"Discarded error during query to {url}", exc_info=True
+                    )
 
     def _get_session(self) -> ClientSession:
         if self._session is not None:
@@ -461,7 +435,9 @@ class SuezClient:
             res += str(self._counter_id)
         return res
 
-    def _check_request_status(self, response: ClientResponse, url: str) -> bool:
+    async def _check_request_status(
+        self, response: ClientResponse, url: str, none_error_code: None | str = None
+    ) -> bool:
         _LOGGER.debug(f"{url} responded with {response.status}")
         if response.status >= 200 and response.status < 300:
             return True
@@ -474,4 +450,10 @@ class SuezClient:
             else:
                 _LOGGER.debug(f"Ignored redirection to {redirection_target}")
                 return True
-        raise PySuezError(f"Unexpected response status {response.status} for {url}")
+        if none_error_code:
+            error = ErrorResponse(**(await response.json()))
+            if error.code == none_error_code:
+                return False
+        raise PySuezError(
+            f"Unexpected response status {response.status} for {url} with {await response.text()}"
+        )

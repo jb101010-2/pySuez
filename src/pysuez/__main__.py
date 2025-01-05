@@ -44,9 +44,11 @@ async def main():
             _LOGGER.info("Getting telemetry for 90 days")
             start = datetime.now().date() - timedelta(days=90)
 
-            telemetry = await client.fetch_telemetry(mode=TelemetryMode.DAILY, start=start)
+            telemetry = await client.fetch_telemetry(
+                mode=TelemetryMode.DAILY, start=start
+            )
             _LOGGER.info("Got telemetry result: ")
-            _LOGGER.info(telemetry.content.measures)
+            _LOGGER.info(telemetry)
         elif args.mode == "alerts":
             _LOGGER.info("getting alerts")
             alerts = await client.get_alerts()
@@ -68,8 +70,8 @@ async def main():
             _LOGGER.info(await client.fetch_aggregated_data())
         else:
             _LOGGER.info(await client.fetch_aggregated_data())
-    except BaseException as exp:
-        _LOGGER.error(exp)
+    except BaseException:
+        _LOGGER.exception()
         return 1
     finally:
         await client.close_session()
