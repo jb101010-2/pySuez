@@ -4,7 +4,9 @@ from pysuez.const import LITERS_PER_CUBIC_METER
 from pysuez.exception import PySuezError
 
 
-def cubic_meters_to_liters(value: float) -> float:
+def cubic_meters_to_liters(value: float | None) -> None | float:
+    if value is None:
+        return None
     return value * LITERS_PER_CUBIC_METER
 
 
