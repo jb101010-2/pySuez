@@ -52,7 +52,7 @@ class ConsumptionIndexResult:
 
 class TelemetryMeasure:
     def __init__(self, date, index, volume, numberOfDays=None):
-        self.date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        self.date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S").date()
         self.index = cubic_meters_to_liters(index)
         self.volume = cubic_meters_to_liters(volume)
         self.number_of_days = numberOfDays
