@@ -12,8 +12,8 @@ class AggregatedData:
     value: float
     current_month: dict[date, float]
     previous_month: dict[date, float]
-    previous_year: dict[str, float]
-    current_year: dict[str, float]
+    previous_year: int
+    current_year: int
     history: dict[date, float]
     highest_monthly_consumption: float
     attribution: str

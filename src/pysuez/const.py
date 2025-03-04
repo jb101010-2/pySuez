@@ -11,7 +11,6 @@ INFORMATION_ENDPOINT_QUALITY = _INFORMATION_ENDPOINT + "quality/"
 INFORMATION_ENDPOINT_PRICE = _INFORMATION_ENDPOINT + "price/"
 INFORMATION_ENDPOINT_LIMESTONE = _INFORMATION_ENDPOINT + "limestone/"
 API_CONSUMPTION_INDEX = "/public-api/contract/tile/consumption"
-API_ENDPOINT_MONTH_DATA = "/mon-compte-en-ligne/statMData/"
 
 API_ENPOINT_TELEMETRY = "/public-api/cel-consumption/telemetry"
 

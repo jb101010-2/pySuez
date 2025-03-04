@@ -1,7 +1,8 @@
 import asyncio
-from enum import Enum
 import logging
 from datetime import date, datetime, timedelta
+from enum import Enum
+from itertools import chain
 from typing import Any
 
 import aiohttp
@@ -13,7 +14,6 @@ from pysuez.const import (
     API_ENDPOINT_ALERT,
     API_ENDPOINT_LOGIN,
     API_ENDPOINT_METERS,
-    API_ENDPOINT_MONTH_DATA,
     API_ENPOINT_TELEMETRY,
     ATTRIBUTION,
     BASE_URI,
@@ -36,6 +36,7 @@ from pysuez.models import (
     AlertResult,
     ConsumptionIndexResult,
     ContractResult,
+    ErrorResponse,
     InterventionResult,
     LimestoneResult,
     MeterListResult,
@@ -43,9 +44,8 @@ from pysuez.models import (
     QualityResult,
     TelemetryMeasure,
     TelemetryResult,
-    ErrorResponse,
 )
-from pysuez.utils import cubic_meters_to_liters, extract_token, next_month
+from pysuez.utils import extract_token, next_month
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -212,7 +212,7 @@ class SuezClient:
             last_year,
             current_year,
             history,
-        ) = await self._fetch_aggregated_statistics()
+        ) = await self._fetch_aggregated_statistics(today_year)
 
         return AggregatedData(
             value=state,
@@ -278,24 +278,39 @@ class SuezClient:
 
     async def _fetch_aggregated_statistics(
         self,
-    ) -> tuple[int, int, int, dict[date, float]]:
+        current_year: int,
+    ) -> tuple[int, int, int, dict[str, float]]:
         try:
-            statistics_url = API_ENDPOINT_MONTH_DATA
-            fetched_data: list = await self._get(statistics_url, with_counter_id=True)
-            highest_monthly_consumption = int(
-                cubic_meters_to_liters(float(fetched_data[-1]))
+
+            def map_to_measure(measure: TelemetryMeasure) -> float:
+                return measure.volume if measure.volume else 0
+
+            current_year_monthly = await self.fetch_telemetry(
+                mode=TelemetryMode.MONTHLY, start=date(current_year, 1, 1)
             )
-            fetched_data.pop()
-            last_year = int(cubic_meters_to_liters(float(fetched_data[-1])))
-            fetched_data.pop()
-            current_year = int(cubic_meters_to_liters(float(fetched_data[-1])))
-            fetched_data.pop()
+            last_year_monthly = await self.fetch_telemetry(
+                mode=TelemetryMode.MONTHLY,
+                start=date(current_year - 1, 1, 1),
+                end=date(current_year - 1, 12, 31),
+            )
+
+            highest_monthly_consumption = max(
+                chain(
+                    map(map_to_measure, current_year_monthly),
+                    map(map_to_measure, last_year_monthly),
+                )
+            )
+            current_year_total = int(sum(map(map_to_measure, current_year_monthly)))
+            last_year_total = sum(map(map_to_measure, last_year_monthly))
+
             history = {}
-            for item in fetched_data:
-                history[item[3]] = int(cubic_meters_to_liters(float(item[1])))
+            for item in last_year_monthly:
+                history[item.date.strftime("%Y-%m")] = int(item.volume)
+            for item in current_year_monthly:
+                history[item.date.strftime("%Y-%m")] = int(item.volume)
         except ValueError:
             raise PySuezError("Issue with history data")
-        return highest_monthly_consumption, last_year, current_year, history
+        return highest_monthly_consumption, last_year_total, current_year_total, history
 
     async def _get_token(self) -> None:
         """Get the token"""
