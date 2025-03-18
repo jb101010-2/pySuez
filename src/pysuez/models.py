@@ -112,7 +112,10 @@ class ErrorResponse:
 
 class PriceResult:
     def __init__(self, price: str):
-        self.price = float(price.replace(",", "."))
+        if not price or len(price) == 0:
+            self.price = None
+        else:
+            self.price = float(price.replace(",", "."))
 
     def __str__(self):
         return "PriceResult price={0}€".format(self.price)
