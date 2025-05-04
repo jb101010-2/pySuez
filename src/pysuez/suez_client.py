@@ -450,6 +450,8 @@ class SuezClient:
     ) -> bool:
         _LOGGER.debug(f"{url} responded with {response.status}")
         if response.status >= 200 and response.status < 300:
+            if response.status == 204:
+                return False
             return True
         if response.status >= 300 and response.status < 400:
             redirection_target = response.headers.get("Location")
