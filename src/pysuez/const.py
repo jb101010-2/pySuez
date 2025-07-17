@@ -8,10 +8,10 @@ API_ENDPOINT_ALERT = "/public-api/contract/tile/alerts"
 _INFORMATION_ENDPOINT = "/information/donnee/"
 INFORMATION_ENDPOINT_INTERVENTION = _INFORMATION_ENDPOINT + "intervention/"
 INFORMATION_ENDPOINT_QUALITY = _INFORMATION_ENDPOINT + "quality/"
-INFORMATION_ENDPOINT_PRICE = _INFORMATION_ENDPOINT + "price/"
 INFORMATION_ENDPOINT_LIMESTONE = _INFORMATION_ENDPOINT + "limestone/"
 API_CONSUMPTION_INDEX = "/public-api/contract/tile/consumption"
 
+API_ENDPOINT_PRICE = "/public-api/cel-consumption/get-price"
 API_ENPOINT_TELEMETRY = "/public-api/cel-consumption/telemetry"
 
 

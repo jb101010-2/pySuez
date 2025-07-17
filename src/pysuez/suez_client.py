@@ -14,12 +14,12 @@ from pysuez.const import (
     API_ENDPOINT_ALERT,
     API_ENDPOINT_LOGIN,
     API_ENDPOINT_METERS,
+    API_ENDPOINT_PRICE,
     API_ENPOINT_TELEMETRY,
     ATTRIBUTION,
     BASE_URI,
     INFORMATION_ENDPOINT_INTERVENTION,
     INFORMATION_ENDPOINT_LIMESTONE,
-    INFORMATION_ENDPOINT_PRICE,
     INFORMATION_ENDPOINT_QUALITY,
     MAX_REQUEST_ATTEMPT,
     TOKEN_HEADERS,
@@ -246,8 +246,7 @@ class SuezClient:
 
     async def get_price(self) -> PriceResult:
         """Fetch water price in e/m3"""
-        contract = await self.contract_data()
-        json = await self._get(INFORMATION_ENDPOINT_PRICE, contract.inseeCode)
+        json = await self._get(API_ENDPOINT_PRICE)
         return PriceResult(**json)
 
     async def get_water_quality(self) -> QualityResult:
