@@ -27,3 +27,6 @@ TOKEN_HEADERS = {
 LITERS_PER_CUBIC_METER = 1000
 
 MAX_REQUEST_ATTEMPT = 2
+
+https://www.toutsurmoneau.fr/public-api/cel-consumption/nontelemetry?id_PDS=5492790162&start_date=2020-01-01&end_date=2025-02-20
+{"content":{"measures":[{"date":"23\/09\/2024","index":549,"volume":53,"type":"R","previousDateMeasure":"12\/03\/2024","numberOfDays":195},{"date":"12\/03\/2024","index":496,"volume":57,"type":"R","previousDateMeasure":"27\/09\/2023","numberOfDays":167},{"date":"27\/09\/2023","index":439,"volume":58,"type":"E","previousDateMeasure":"12\/03\/2023","numberOfDays":199},{"date":"12\/03\/2023","index":381,"volume":74,"type":"R","previousDateMeasure":"27\/09\/2022","numberOfDays":166},{"date":"27\/09\/2022","index":307,"volume":50,"type":"E","previousDateMeasure":"17\/03\/2022","numberOfDays":194},{"date":"17\/03\/2022","index":257,"volume":36,"type":"E","previousDateMeasure":"27\/09\/2021","numberOfDays":171},{"date":"27\/09\/2021","index":221,"volume":42,"type":"E","previousDateMeasure":"15\/03\/2021","numberOfDays":196},{"date":"15\/03\/2021","index":179,"volume":60,"type":"R","previousDateMeasure":"25\/09\/2020","numberOfDays":171}],"arrivalDate":"31\/07\/2020"},"code":"00","message":"OK"}
