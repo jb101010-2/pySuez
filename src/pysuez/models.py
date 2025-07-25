@@ -110,12 +110,18 @@ class ErrorResponse:
     response: Any
 
 
+class PriceContent:
+    def __init__(self, price: float):
+        self.price = price
+
 class PriceResult:
-    def __init__(self, code: str, content: str, message: str):
+    def __init__(self, code: str, content: Any, message: str):
         self.code = code
         self.content = content
-        if "price" in self.content:
-            self.price = content["price"]
+        if content is not None:
+            self.price = PriceContent(**content).price
+        else:
+            self.price = None
         self.message = message
 
     def __str__(self):
