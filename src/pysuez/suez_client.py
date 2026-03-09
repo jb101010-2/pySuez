@@ -20,6 +20,7 @@ from pysuez.const import (
     BASE_URI,
     INFORMATION_ENDPOINT_INTERVENTION,
     INFORMATION_ENDPOINT_LIMESTONE,
+    INFORMATION_ENDPOINT_PRICE,
     INFORMATION_ENDPOINT_QUALITY,
     MAX_REQUEST_ATTEMPT,
     TOKEN_HEADERS,
@@ -247,6 +248,12 @@ class SuezClient:
     async def get_price(self) -> PriceResult:
         """Fetch water price in e/m3"""
         json = await self._get(API_ENDPOINT_PRICE)
+        if json is None or json.get("content") is None or json.get("message") == "KO_SERVICE":
+            # retry with alternative API
+            contract = await self.contract_data()
+            json = await self._get(INFORMATION_ENDPOINT_PRICE, contract.inseeCode)
+            json["price"] = float(json["price"].replace(",", "."))
+            return PriceResult(code="", content=json, message="")
         return PriceResult(**json)
 
     async def get_water_quality(self) -> QualityResult:
