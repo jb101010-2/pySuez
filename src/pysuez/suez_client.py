@@ -127,9 +127,14 @@ class SuezClient:
 
         requested_date = now.replace(year=year, month=month, day=1).date()
 
-        return await self.fetch_telemetry(
+        measures = await self.fetch_telemetry(
             TelemetryMode.DAILY, requested_date, next_month(requested_date)
         )
+        return [
+            measure
+            for measure in measures
+            if measure.date.year == year and measure.date.month == month
+        ]
 
     async def fetch_all_daily_data(
         self, since: date | None = None, timeout: int | None = 60
