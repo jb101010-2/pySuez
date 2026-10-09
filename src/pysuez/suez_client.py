@@ -12,9 +12,11 @@ from aiohttp.client import ClientResponse
 from pysuez.const import (
     API_CONSUMPTION_INDEX,
     API_ENDPOINT_ALERT,
+    API_ENDPOINT_CONTRACTS,
     API_ENDPOINT_LOGIN,
     API_ENDPOINT_METERS,
     API_ENDPOINT_PRICE,
+    API_ENDPOINT_SWITCH_CONTRACT,
     API_ENPOINT_TELEMETRY,
     ATTRIBUTION,
     BASE_URI,
@@ -23,6 +25,7 @@ from pysuez.const import (
     INFORMATION_ENDPOINT_PRICE,
     INFORMATION_ENDPOINT_QUALITY,
     MAX_REQUEST_ATTEMPT,
+    SWITCH_CONTRACT_REDIRECT,
     TOKEN_HEADERS,
 )
 from pysuez.exception import (
@@ -81,6 +84,9 @@ class SuezClient:
             self._timeout = ClientTimeout(total=60)
         else:
             self._timeout = timeout
+        self._contract_ref: str | None = None
+        self._contract_resolved = False
+        self._selecting_contract = False
 
     async def check_credentials(self) -> bool:
         try:
@@ -283,9 +289,98 @@ class SuezClient:
         return LimestoneResult(**json)
 
     async def contract_data(self) -> ContractResult:
-        url = "/public-api/user/donnees-contrats"
-        json = await self._get(url)
-        return ContractResult(json[0])
+        """Return the current contract of the session.
+
+        Each login switches the session to the contract holding the counter
+        (see select_counter_contract), so this is the contract of the counter.
+        Falls back to the first contract if none is flagged as current.
+        """
+        json = await self._get(API_ENDPOINT_CONTRACTS)
+        current = next((c for c in json if c.get("isCurrentContract")), json[0])
+        return ContractResult(current)
+
+    async def select_counter_contract(self) -> None:
+        """Switch the session to the contract holding the configured counter.
+
+        On accounts holding several contracts, the website APIs (telemetry,
+        price, meters list...) are scoped to the "current" contract of the
+        session, which is reset to the default contract at each login.
+        Requesting the telemetry of a counter attached to another contract
+        then fails with error code 13 ("Le compteur n'appartient pas à
+        l'utilisateur.").
+
+        This is called automatically after each login. It does nothing when
+        no counter id is set or when the account holds a single contract.
+        """
+        if self._counter_id is None:
+            return
+        self._selecting_contract = True
+        try:
+            if not self._contract_resolved:
+                self._contract_ref = await self._find_counter_contract()
+                self._contract_resolved = True
+            if self._contract_ref is not None:
+                await self._switch_contract(self._contract_ref)
+        finally:
+            self._selecting_contract = False
+
+    async def _find_counter_contract(self) -> str | None:
+        """Return the reference of the contract holding the counter.
+
+        Returns None for single-contract accounts (nothing to switch) or when
+        the counter is not found in any contract.
+        """
+        contracts = await self._get(API_ENDPOINT_CONTRACTS) or []
+        if len(contracts) <= 1:
+            _LOGGER.debug("Single contract account, no contract switch needed")
+            return None
+
+        counter_id = str(self._counter_id)
+        initial_ref = None
+        for contract in contracts:
+            ref = contract.get("fullRefFormat") or contract.get("fullRef")
+            if not ref:
+                continue
+            if contract.get("isCurrentContract"):
+                initial_ref = ref
+            await self._switch_contract(ref)
+            if counter_id in await self._current_contract_counter_ids():
+                _LOGGER.debug("Counter %s found in contract %s", counter_id, ref)
+                return ref
+
+        _LOGGER.warning(
+            "Counter %s not found in any of the %s contracts of this account",
+            counter_id,
+            len(contracts),
+        )
+        if initial_ref is not None:
+            await self._switch_contract(initial_ref)
+        return None
+
+    async def _current_contract_counter_ids(self) -> set[str]:
+        """Return the counter ids (idPDS) of the session current contract."""
+        json = await self._get(API_ENDPOINT_METERS) or {}
+        content = json.get("content") or {}
+        return {
+            str(meter.get("idPDS"))
+            for client in content.get("clientCompteursPro") or []
+            for meter in client.get("compteursPro") or []
+        }
+
+    async def _switch_contract(self, ref: str) -> None:
+        """Switch the session current contract, as the website contract selector does.
+
+        The website answers with a redirection to the dashboard: redirections
+        are not followed here (read="text"), a redirection to the login page
+        triggers a new login and a retry.
+        """
+        _LOGGER.debug("Switching session to contract %s", ref)
+        await self._get(
+            API_ENDPOINT_SWITCH_CONTRACT,
+            ref,
+            params={"redirect": SWITCH_CONTRACT_REDIRECT},
+            read="text",
+        )
 
     async def _fetch_aggregated_statistics(
         self,
@@ -370,9 +465,21 @@ class SuezClient:
                 self._headers["Cookie"] = ""
                 session_id = session_cookie.value
                 self._headers["Cookie"] = "eZSESSID=" + session_id
-                return True
         except Exception:
             raise PySuezConnexionError("Can not submit login form.")
+
+        # Each login resets the session to the default contract: switch back to
+        # the contract holding the counter. This must never prevent the login.
+        if not self._selecting_contract:
+            try:
+                await self.select_counter_contract()
+            except Exception:
+                _LOGGER.warning(
+                    "Could not select the contract of counter %s",
+                    self._counter_id,
+                    exc_info=True,
+                )
+        return True
 
     async def _get(
         self,
