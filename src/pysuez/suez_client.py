@@ -277,8 +277,15 @@ class SuezClient:
         return LimestoneResult(**json)
 
     async def contract_data(self) -> ContractResult:
+        """Return the current contract of the session.
+
+        Each login switches the session to the contract holding the counter
+        (see select_counter_contract), so this is the contract of the counter.
+        Falls back to the first contract if none is flagged as current.
+        """
         json = await self._get(API_ENDPOINT_CONTRACTS)
-        return ContractResult(json[0])
+        current = next((c for c in json if c.get("isCurrentContract")), json[0])
+        return ContractResult(current)
 
     async def select_counter_contract(self) -> None:
         """Switch the session to the contract holding the configured counter.
